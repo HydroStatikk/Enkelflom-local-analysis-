@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hydrological Analysis Results</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-droplet-fill text-primary me-2"></i>
+                Hydrological Analysis Tool
+            </a>
+            <div class="ms-auto">
+                <a href="{{ url_for('index') }}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i> New Analysis
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-5">
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">Analysis Results</h4>
+                    </div>
+                    <div class="card-body">
+                        <h5>Input Parameters</h5>
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <table class="table table-sm">
+                                    <tbody>
+                                        <tr>
+                                            <th>Location</th>
+                                            <td>{{ results.user_inputs.latitude }}, {{ results.user_inputs.longitude }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Radius</th>
+                                            <td>{{ results.user_inputs.radius_km }} km</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Catchment Area</th>
+                                            <td>{{ results.user_inputs.catchment_area_km2 }} km²</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <table class="table table-sm">
+                                    <tbody>
+                                        <tr>
+                                            <th>Climate Factor</th>
+                                            <td>{{ results.user_inputs.climate_factor }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Safety Factor</th>
+                                            <td>{{ results.user_inputs.safety_factor }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Locality Scaling Factor</th>
+                                            <td>{{ results.user_inputs.locality_scaling_factor }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Distance Scaling Factor</th>
+                                            <td>{{ results.user_inputs.distance_scaling_factor }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <h5>Stations Used in Analysis</h5>
+                        <div class="table-responsive mb-4">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Station</th>
+                                        <th>Coordinates</th>
+                                        <th>Distance (km)</th>
+                                        <th>Specific Discharge</th>
+                                        <th>Locality Weight</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for station in results.filtered_stations %}
+                                    <tr>
+                                        <td>{{ station.stationName }} ({{ station.stationNumber }})</td>
+                                        <td>{{ station.latitude }}, {{ station.longitude }}</td>
+                                        <td>{{ "%.2f"|format(station.distance_to_user) }}</td>
+                                        <td>{{ "%.2f"|format(station.specificDischarge) }}</td>
+                                        <td>{{ "%.4f"|format(station.locality_weight_normalized) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Station Weights by Distance</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="stationWeightsChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Specific Discharge by Station</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="specificDischargeChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h5>Discharge Summary</h5>
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <table class="table table-sm">
+                                            <tbody>
+                                                <tr>
+                                                    <th>Weighted Average Specific Discharge</th>
+                                                    <td>{{ "%.2f"|format(results.discharge_summary.weighted_avg_specific_discharge) }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Average Discharge</th>
+                                                    <td>{{ "%.2f"|format(results.discharge_summary.average_discharge) }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Standard Deviation of Discharge</th>
+                                                    <td>{{ "%.2f"|format(results.discharge_summary.std_discharge) }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Average Discharge over Catchment Area</th>
+                                                    <td>{{ "%.2f"|format(results.discharge_summary.average_discharge_catchment) }} m³/s</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle-fill me-2"></i>
+                                    <strong>Interpretation:</strong> The weighted average specific discharge considers the locality weights of each station based on their distance from the user-defined coordinates.
+                                </div>
+                            </div>
+                        </div>
+
+                        <h5>Flood Metrics</h5>
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Return Period</th>
+                                                <th>Average Ratio</th>
+                                                <th>Standard Deviation</th>
+                                                <th>Flood Discharge (m³/s)</th>
+                                                <th>Dimensioned Flood Discharge (m³/s)</th>
+                                                <th>Deviated Flood Discharge (m³/s)</th>
+                                                <th>Dimensioned Deviated Discharge (m³/s)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for metric_name, metric in results.flood_metrics.items() %}
+                                            <tr>
+                                                <td>{{ metric_name }}</td>
+                                                <td>{{ "%.2f"|format(metric.average_value) }}</td>
+                                                <td>{{ "%.2f"|format(metric.std_dev) }}</td>
+                                                <td>{{ "%.2f"|format(metric.flood_discharge) }}</td>
+                                                <td>{{ "%.2f"|format(metric.dimensioned_flood_discharge) }}</td>
+                                                <td>{{ "%.2f"|format(metric.deviated_flood_discharge) }}</td>
+                                                <td>{{ "%.2f"|format(metric.dimensioned_deviated_flood_discharge) }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Flood Discharge Comparison</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="floodDischargeChart" height="250"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Explanation of Results</h5>
+                            </div>
+                            <div class="card-body">
+                                <dl>
+                                    <dt>Weighted Average Specific Discharge</dt>
+                                    <dd>This represents the average discharge per unit area, weighted by the locality of stations to your coordinates.</dd>
+                                    
+                                    <dt>Flood Discharge</dt>
+                                    <dd>The base flood discharge calculated for each return period using the average Q/Qn ratio.</dd>
+                                    
+                                    <dt>Deviated Flood Discharge</dt>
+                                    <dd>Flood discharge adjusted for statistical uncertainty by incorporating standard deviation.</dd>
+                                    
+                                    <dt>Dimensioned Flood Discharge</dt>
+                                    <dd>Flood discharge multiplied by the climate factor and safety factor to account for climate change and safety margins.</dd>
+                                    
+                                    <dt>Dimensioned Deviated Discharge</dt>
+                                    <dd>Deviated flood discharge also adjusted by climate and safety factors. This represents the most conservative estimate.</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-light py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Hydrological Analysis Tool</h5>
+                    <p class="text-muted">A web-based tool for calculating flood-related metrics from station data</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="mb-0 text-muted">&copy; 2023 Hydrological Analysis</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Parse results data from Flask
+        const resultsData = {{ results|tojson }};
+        
+        // Chart for station weights
+        const stationLabels = resultsData.chart_data.stations.labels;
+        const stationDistances = resultsData.chart_data.stations.distances;
+        const stationWeights = resultsData.chart_data.stations.weights;
+        
+        new Chart(document.getElementById('stationWeightsChart'), {
+            type: 'bar',
+            data: {
+                labels: stationLabels,
+                datasets: [{
+                    label: 'Locality Weight',
+                    data: stationWeights,
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Station Locality Weights'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: function(context) {
+                                const index = context.dataIndex;
+                                return `Distance: ${stationDistances[index].toFixed(2)} km`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Chart for specific discharge
+        new Chart(document.getElementById('specificDischargeChart'), {
+            type: 'bar',
+            data: {
+                labels: stationLabels,
+                datasets: [{
+                    label: 'Specific Discharge',
+                    data: resultsData.chart_data.stations.specific_discharge,
+                    backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Specific Discharge by Station'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Specific Discharge'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Chart for flood discharge comparison
+        new Chart(document.getElementById('floodDischargeChart'), {
+            type: 'bar',
+            data: {
+                labels: resultsData.chart_data.flood_metrics.labels,
+                datasets: [
+                    {
+                        label: 'Flood Discharge',
+                        data: resultsData.chart_data.flood_metrics.flood_discharge,
+                        backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Dimensioned Flood Discharge',
+                        data: resultsData.chart_data.flood_metrics.dimensioned_flood_discharge,
+                        backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Deviated Flood Discharge',
+                        data: resultsData.chart_data.flood_metrics.deviated_flood_discharge,
+                        backgroundColor: 'rgba(255, 159, 64, 0.7)',
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Dimensioned Deviated Discharge',
+                        data: resultsData.chart_data.flood_metrics.dimensioned_deviated_flood_discharge,
+                        backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Flood Discharge Comparison by Return Period'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Discharge (m³/s)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Return Period'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
